@@ -39,11 +39,18 @@ function ConvertHandler() {
     
     let unit = result[0].toLowerCase();
     
-    // Valid units
-    const validUnits = ['gal', 'l', 'mi', 'km', 'lbs', 'kg'];
+    // Valid units - return in correct case
+    const validUnits = {
+      'gal': 'gal',
+      'l': 'L',
+      'mi': 'mi', 
+      'km': 'km',
+      'lbs': 'lbs',
+      'kg': 'kg'
+    };
     
-    if (validUnits.includes(unit)) {
-      return unit === 'l' ? 'L' : unit;
+    if (validUnits.hasOwnProperty(unit)) {
+      return validUnits[unit];
     }
     
     return 'invalid unit';
@@ -105,6 +112,7 @@ function ConvertHandler() {
         return 'invalid unit';
     }
     
+    // Round to 5 decimal places
     return Math.round(result * 100000) / 100000;
   };
   
