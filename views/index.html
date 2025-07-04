@@ -1,65 +1,59 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Metric-Imperial Converter</title>
-  <meta name="description" content="A cool app for converting between metric and imperial units">
-  <meta name="keywords" content="metric, imperial, converter, units">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header>
-    <h1>Metric ↔ Imperial Converter</h1>
-    <p>Enter a value and unit to convert between metric and imperial measurements</p>
-  </header>
-  
-  <main>
-    <section class="converter-section">
-      <form id="convertForm">
-        <div class="input-group">
-          <label for="convertInput">Enter value and unit:</label>
-          <input type="text" id="convertInput" name="input" placeholder="e.g., 10L, 5mi, 3.5kg" required>
-          <button type="submit">Convert</button>
-        </div>
-      </form>
-      
-      <div id="result" class="result-section"></div>
+  <head>
+    <title>Metric/Imperial Converter</title>
+    <meta name="description" content="An example of the Free Code Camp Metric/Imperial Converter Project">
+    <link id="favicon" rel="icon" href="https://cdn.freecodecamp.org/universal/favicons/favicon-32x32.png" type="image/x-icon">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./public/style.css">
+  </head>
+  <body>
+    <header>
+      <h1>Metric/Imperial Converter</h1>
+    </header>
+    <hr style='margin: 50px'>
+    <section>
+      <h3>Example usage</h3>
+      <code>/api/convert?input=4gal</code><br>
+      <code>/api/convert?input=1/2km</code><br>
+      <code>/api/convert?input=5.4/3lbs</code><br>
+      <code>/api/convert?input=kg</code><br>
+      <h3>Example return</h3>
+      <code>{ initNum: 3.1, initUnit: 'mi', returnNum: 4.98895, returnUnit: 'km', string: '3.1 miles converts to 4.98895 kilometers' }</code>
     </section>
-    
-    <section class="info-section">
-      <h2>Supported Conversions</h2>
-      <div class="conversion-grid">
-        <div class="conversion-item">
-          <h3>Volume</h3>
-          <p>Gallons (gal) ↔ Liters (L)</p>
-        </div>
-        <div class="conversion-item">
-          <h3>Distance</h3>
-          <p>Miles (mi) ↔ Kilometers (km)</p>
-        </div>
-        <div class="conversion-item">
-          <h3>Weight</h3>
-          <p>Pounds (lbs) ↔ Kilograms (kg)</p>
-        </div>
+    <hr style='margin: 50px'>
+    <section>
+      <div id='testui' >
+        <h3 style="text-align: left">Front-End</h3>
+        <form id="convertForm" class="border">
+          <input type="text" id="convertField" name="input" placeholder="3.1mi" style="width: 200px">
+          <input id="convert" type="submit" value='Convert!'>
+        </form>
+        <p id='result'></p>
+        <code id='jsonResult'></code>
       </div>
     </section>
-    
-    <section class="examples-section">
-      <h2>Examples</h2>
-      <ul>
-        <li><strong>10L</strong> - Convert 10 liters to gallons</li>
-        <li><strong>5mi</strong> - Convert 5 miles to kilometers</li>
-        <li><strong>3.5kg</strong> - Convert 3.5 kilograms to pounds</li>
-        <li><strong>1/2gal</strong> - Convert half gallon to liters</li>
-        <li><strong>2.5/3lbs</strong> - Convert fractional pounds to kilograms</li>
-      </ul>
-    </section>
-  </main>
-  
-  <footer>
-    <p>Built with Node.js and Express.js</p>
-  </footer>
-  
-  <script src="script.js"></script>
-</body>
+    <!-- Your web-app is https, so your scripts need to be too -->
+    <script src="https://code.jquery.com/jquery-2.2.1.min.js"
+            integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00="
+            crossorigin="anonymous"></script>
+    <script>
+      $(function() {
+        $('#convertForm').submit(function(event) {
+          event.preventDefault();
+          $.ajax({
+            url: '/api/convert',
+            type: 'get',
+            data: $('#convertForm').serialize(),
+            success: function(data) {
+              $('#result').text(data.string || data);
+              $('#jsonResult').text(JSON.stringify(data));
+            }
+          });
+        });
+      });
+   </script>
+  </body>
 </html>
