@@ -1,59 +1,515 @@
+// package.json
+{
+  "name": "metric-imperial-converter",
+  "version": "1.0.0",
+  "description": "A full stack JavaScript app for converting between metric and imperial units",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "mocha tests/ --recursive --exit"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "mocha": "^10.2.0",
+    "chai": "^4.3.7",
+    "chai-http": "^4.3.0"
+  },
+  "keywords": ["metric", "imperial", "converter", "nodejs", "express"],
+  "author": "Your Name",
+  "license": "MIT"
+}
+
+// server.js
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const apiRoutes = require('./routes/api.js');
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Routes
+app.use('/api', apiRoutes);
+
+// Main page
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/views/index.html');
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).send('Page not found');
+});
+
+// Start server
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
+
+// controllers/convertHandler.js
+function ConvertHandler() {
+  
+  this.getNum = function(input) {
+    let result = input.match(/^[\d./]+/);
+    if (!result) return 1;
+    
+    let numStr = result[0];
+    
+    // Check for double fraction (more than one '/')
+    if ((numStr.match(/\//g) || []).length > 1) {
+      return 'invalid number';
+    }
+    
+    // Handle fraction
+    if (numStr.includes('/')) {
+      let parts = numStr.split('/');
+      if (parts.length !== 2) return 'invalid number';
+      
+      let numerator = parseFloat(parts[0]);
+      let denominator = parseFloat(parts[1]);
+      
+      if (isNaN(numerator) || isNaN(denominator) || denominator === 0) {
+        return 'invalid number';
+      }
+      
+      return numerator / denominator;
+    }
+    
+    // Handle decimal
+    let num = parseFloat(numStr);
+    if (isNaN(num)) return 'invalid number';
+    
+    return num;
+  };
+  
+  this.getUnit = function(input) {
+    let result = input.match(/[a-zA-Z]+$/);
+    if (!result) return 'invalid unit';
+    
+    let unit = result[0].toLowerCase();
+    
+    // Valid units
+    const validUnits = ['gal', 'l', 'mi', 'km', 'lbs', 'kg'];
+    
+    if (validUnits.includes(unit)) {
+      return unit === 'l' ? 'L' : unit;
+    }
+    
+    return 'invalid unit';
+  };
+  
+  this.getReturnUnit = function(initUnit) {
+    const unitMap = {
+      'gal': 'L',
+      'L': 'gal',
+      'mi': 'km',
+      'km': 'mi',
+      'lbs': 'kg',
+      'kg': 'lbs'
+    };
+    
+    return unitMap[initUnit] || 'invalid unit';
+  };
+
+  this.spellOutUnit = function(unit) {
+    const unitNames = {
+      'gal': 'gallons',
+      'L': 'liters',
+      'mi': 'miles',
+      'km': 'kilometers',
+      'lbs': 'pounds',
+      'kg': 'kilograms'
+    };
+    
+    return unitNames[unit] || 'invalid unit';
+  };
+  
+  this.convert = function(initNum, initUnit) {
+    const galToL = 3.78541;
+    const lbsToKg = 0.453592;
+    const miToKm = 1.60934;
+    
+    let result;
+    
+    switch(initUnit) {
+      case 'gal':
+        result = initNum * galToL;
+        break;
+      case 'L':
+        result = initNum / galToL;
+        break;
+      case 'mi':
+        result = initNum * miToKm;
+        break;
+      case 'km':
+        result = initNum / miToKm;
+        break;
+      case 'lbs':
+        result = initNum * lbsToKg;
+        break;
+      case 'kg':
+        result = initNum / lbsToKg;
+        break;
+      default:
+        return 'invalid unit';
+    }
+    
+    return Math.round(result * 100000) / 100000;
+  };
+  
+  this.getString = function(initNum, initUnit, returnNum, returnUnit) {
+    return `${initNum} ${this.spellOutUnit(initUnit)} converts to ${returnNum} ${this.spellOutUnit(returnUnit)}`;
+  };
+  
+}
+
+module.exports = ConvertHandler;
+
+// routes/api.js
+const express = require('express');
+const ConvertHandler = require('../controllers/convertHandler.js');
+
+const router = express.Router();
+const convertHandler = new ConvertHandler();
+
+router.get('/convert', (req, res) => {
+  const input = req.query.input;
+  
+  if (!input) {
+    return res.json({ error: 'invalid input' });
+  }
+  
+  const initNum = convertHandler.getNum(input);
+  const initUnit = convertHandler.getUnit(input);
+  
+  // Handle invalid inputs
+  if (initNum === 'invalid number' && initUnit === 'invalid unit') {
+    return res.json({ error: 'invalid number and unit' });
+  }
+  
+  if (initNum === 'invalid number') {
+    return res.json({ error: 'invalid number' });
+  }
+  
+  if (initUnit === 'invalid unit') {
+    return res.json({ error: 'invalid unit' });
+  }
+  
+  const returnUnit = convertHandler.getReturnUnit(initUnit);
+  const returnNum = convertHandler.convert(initNum, initUnit);
+  const string = convertHandler.getString(initNum, initUnit, returnNum, returnUnit);
+  
+  res.json({
+    initNum: initNum,
+    initUnit: initUnit,
+    returnNum: returnNum,
+    returnUnit: returnUnit,
+    string: string
+  });
+});
+
+module.exports = router;
+
+// tests/1_unit-tests.js
+const chai = require('chai');
+const assert = chai.assert;
+const ConvertHandler = require('../controllers/convertHandler.js');
+
+let convertHandler = new ConvertHandler();
+
+suite('Unit Tests', function(){
+  
+  suite('Function convertHandler.getNum(input)', function() {
+    
+    test('Whole number input', function(done) {
+      let input = '32L';
+      assert.equal(convertHandler.getNum(input), 32);
+      done();
+    });
+    
+    test('Decimal Input', function(done) {
+      let input = '3.1mi';
+      assert.equal(convertHandler.getNum(input), 3.1);
+      done();
+    });
+    
+    test('Fractional Input', function(done) {
+      let input = '1/2km';
+      assert.equal(convertHandler.getNum(input), 0.5);
+      done();
+    });
+    
+    test('Fractional Input w/ Decimal', function(done) {
+      let input = '5.4/3lbs';
+      assert.equal(convertHandler.getNum(input), 5.4/3);
+      done();
+    });
+    
+    test('Invalid Input (double fraction)', function(done) {
+      let input = '3/2/3';
+      assert.equal(convertHandler.getNum(input), 'invalid number');
+      done();
+    });
+    
+    test('No Numerical Input', function(done) {
+      let input = 'kg';
+      assert.equal(convertHandler.getNum(input), 1);
+      done();
+    });
+    
+  });
+  
+  suite('Function convertHandler.getUnit(input)', function() {
+    
+    test('For Each Valid Unit Inputs', function(done) {
+      let input = ['gal','l','mi','km','lbs','kg','GAL','L','MI','KM','LBS','KG'];
+      let expected = ['gal','L','mi','km','lbs','kg','gal','L','mi','km','lbs','kg'];
+      input.forEach(function(ele, i) {
+        assert.equal(convertHandler.getUnit(ele), expected[i]);
+      });
+      done();
+    });
+    
+    test('Unknown Unit Input', function(done) {
+      let input = '32g';
+      assert.equal(convertHandler.getUnit(input), 'invalid unit');
+      done();
+    });
+    
+  });
+  
+  suite('Function convertHandler.getReturnUnit(initUnit)', function() {
+    
+    test('For Each Valid Unit Inputs', function(done) {
+      let input = ['gal','L','mi','km','lbs','kg'];
+      let expected = ['L','gal','km','mi','kg','lbs'];
+      input.forEach(function(ele, i) {
+        assert.equal(convertHandler.getReturnUnit(ele), expected[i]);
+      });
+      done();
+    });
+    
+  });
+  
+  suite('Function convertHandler.spellOutUnit(unit)', function() {
+    
+    test('For Each Valid Unit Inputs', function(done) {
+      let input = ['gal','L','mi','km','lbs','kg'];
+      let expected = ['gallons','liters','miles','kilometers','pounds','kilograms'];
+      input.forEach(function(ele, i) {
+        assert.equal(convertHandler.spellOutUnit(ele), expected[i]);
+      });
+      done();
+    });
+    
+  });
+  
+  suite('Function convertHandler.convert(num, unit)', function() {
+    
+    test('Gal to L', function(done) {
+      let input = [5, 'gal'];
+      let expected = 18.9271;
+      assert.approximately(convertHandler.convert(input[0],input[1]),expected,0.1);
+      done();
+    });
+    
+    test('L to Gal', function(done) {
+      let input = [5, 'L'];
+      let expected = 1.32086;
+      assert.approximately(convertHandler.convert(input[0],input[1]),expected,0.1);
+      done();
+    });
+    
+    test('Mi to Km', function(done) {
+      let input = [5, 'mi'];
+      let expected = 8.0467;
+      assert.approximately(convertHandler.convert(input[0],input[1]),expected,0.1);
+      done();
+    });
+    
+    test('Km to Mi', function(done) {
+      let input = [5, 'km'];
+      let expected = 3.10686;
+      assert.approximately(convertHandler.convert(input[0],input[1]),expected,0.1);
+      done();
+    });
+    
+    test('Lbs to Kg', function(done) {
+      let input = [5, 'lbs'];
+      let expected = 2.26796;
+      assert.approximately(convertHandler.convert(input[0],input[1]),expected,0.1);
+      done();
+    });
+    
+    test('Kg to Lbs', function(done) {
+      let input = [5, 'kg'];
+      let expected = 11.02312;
+      assert.approximately(convertHandler.convert(input[0],input[1]),expected,0.1);
+      done();
+    });
+    
+  });
+
+});
+
+// tests/2_functional-tests.js
+const chaiHttp = require('chai-http');
+const chai = require('chai');
+const assert = chai.assert;
+const server = require('../server');
+
+chai.use(chaiHttp);
+
+suite('Functional Tests', function() {
+  
+  suite('GET /api/convert', function() {
+    
+    test('Convert a valid input such as 10L', function(done) {
+      chai.request(server)
+        .get('/api/convert')
+        .query({input: '10L'})
+        .end(function(err, res) {
+          assert.equal(res.status, 200);
+          assert.equal(res.body.initNum, 10);
+          assert.equal(res.body.initUnit, 'L');
+          assert.approximately(res.body.returnNum, 2.64172, 0.1);
+          assert.equal(res.body.returnUnit, 'gal');
+          assert.equal(res.body.string, '10 liters converts to 2.64172 gallons');
+          done();
+        });
+    });
+    
+    test('Convert an invalid input such as 32g', function(done) {
+      chai.request(server)
+        .get('/api/convert')
+        .query({input: '32g'})
+        .end(function(err, res) {
+          assert.equal(res.status, 200);
+          assert.equal(res.body.error, 'invalid unit');
+          done();
+        });
+    });
+    
+    test('Convert an invalid number such as 3/7.2/4kg', function(done) {
+      chai.request(server)
+        .get('/api/convert')
+        .query({input: '3/7.2/4kg'})
+        .end(function(err, res) {
+          assert.equal(res.status, 200);
+          assert.equal(res.body.error, 'invalid number');
+          done();
+        });
+    });
+    
+    test('Convert an invalid number AND unit such as 3/7.2/4kilomegagram', function(done) {
+      chai.request(server)
+        .get('/api/convert')
+        .query({input: '3/7.2/4kilomegagram'})
+        .end(function(err, res) {
+          assert.equal(res.status, 200);
+          assert.equal(res.body.error, 'invalid number and unit');
+          done();
+        });
+    });
+    
+    test('Convert with no number such as kg', function(done) {
+      chai.request(server)
+        .get('/api/convert')
+        .query({input: 'kg'})
+        .end(function(err, res) {
+          assert.equal(res.status, 200);
+          assert.equal(res.body.initNum, 1);
+          assert.equal(res.body.initUnit, 'kg');
+          assert.approximately(res.body.returnNum, 2.20462, 0.1);
+          assert.equal(res.body.returnUnit, 'lbs');
+          assert.equal(res.body.string, '1 kilograms converts to 2.20462 pounds');
+          done();
+        });
+    });
+    
+  });
+
+});
+
+// views/index.html
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Metric/Imperial Converter</title>
-    <meta name="description" content="An example of the Free Code Camp Metric/Imperial Converter Project">
-    <link id="favicon" rel="icon" href="https://cdn.freecodecamp.org/universal/favicons/favicon-32x32.png" type="image/x-icon">
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="./public/style.css">
-  </head>
-  <body>
-    <header>
-      <h1>Metric/Imperial Converter</h1>
-    </header>
-    <hr style='margin: 50px'>
-    <section>
-      <h3>Example usage</h3>
-      <code>/api/convert?input=4gal</code><br>
-      <code>/api/convert?input=1/2km</code><br>
-      <code>/api/convert?input=5.4/3lbs</code><br>
-      <code>/api/convert?input=kg</code><br>
-      <h3>Example return</h3>
-      <code>{ initNum: 3.1, initUnit: 'mi', returnNum: 4.98895, returnUnit: 'km', string: '3.1 miles converts to 4.98895 kilometers' }</code>
+<head>
+  <title>Metric-Imperial Converter</title>
+  <meta name="description" content="A cool app for converting between metric and imperial units">
+  <meta name="keywords" content="metric, imperial, converter, units">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Metric ↔ Imperial Converter</h1>
+    <p>Enter a value and unit to convert between metric and imperial measurements</p>
+  </header>
+  
+  <main>
+    <section class="converter-section">
+      <form id="convertForm">
+        <div class="input-group">
+          <label for="convertInput">Enter value and unit:</label>
+          <input type="text" id="convertInput" name="input" placeholder="e.g., 10L, 5mi, 3.5kg" required>
+          <button type="submit">Convert</button>
+        </div>
+      </form>
+      
+      <div id="result" class="result-section"></div>
     </section>
-    <hr style='margin: 50px'>
-    <section>
-      <div id='testui' >
-        <h3 style="text-align: left">Front-End</h3>
-        <form id="convertForm" class="border">
-          <input type="text" id="convertField" name="input" placeholder="3.1mi" style="width: 200px">
-          <input id="convert" type="submit" value='Convert!'>
-        </form>
-        <p id='result'></p>
-        <code id='jsonResult'></code>
+    
+    <section class="info-section">
+      <h2>Supported Conversions</h2>
+      <div class="conversion-grid">
+        <div class="conversion-item">
+          <h3>Volume</h3>
+          <p>Gallons (gal) ↔ Liters (L)</p>
+        </div>
+        <div class="conversion-item">
+          <h3>Distance</h3>
+          <p>Miles (mi) ↔ Kilometers (km)</p>
+        </div>
+        <div class="conversion-item">
+          <h3>Weight</h3>
+          <p>Pounds (lbs) ↔ Kilograms (kg)</p>
+        </div>
       </div>
     </section>
-    <!-- Your web-app is https, so your scripts need to be too -->
-    <script src="https://code.jquery.com/jquery-2.2.1.min.js"
-            integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00="
-            crossorigin="anonymous"></script>
-    <script>
-      $(function() {
-        $('#convertForm').submit(function(event) {
-          event.preventDefault();
-          $.ajax({
-            url: '/api/convert',
-            type: 'get',
-            data: $('#convertForm').serialize(),
-            success: function(data) {
-              $('#result').text(data.string || data);
-              $('#jsonResult').text(JSON.stringify(data));
-            }
-          });
-        });
-      });
-   </script>
-  </body>
+    
+    <section class="examples-section">
+      <h2>Examples</h2>
+      <ul>
+        <li><strong>10L</strong> - Convert 10 liters to gallons</li>
+        <li><strong>5mi</strong> - Convert 5 miles to kilometers</li>
+        <li><strong>3.5kg</strong> - Convert 3.5 kilograms to pounds</li>
+        <li><strong>1/2gal</strong> - Convert half gallon to liters</li>
+        <li><strong>2.5/3lbs</strong> - Convert fractional pounds to kilograms</li>
+      </ul>
+    </section>
+  </main>
+  
+  <footer>
+    <p>Built with Node.js and Express.js</p>
+  </footer>
+  
+  <script src="script.js"></script>
+</body>
 </html>
