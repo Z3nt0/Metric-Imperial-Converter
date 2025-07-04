@@ -1,5 +1,5 @@
 function ConvertHandler() {
-  const units = ['gal', 'L', 'mi', 'km', 'lbs', 'kg'];
+  const units = ['gal', 'l', 'mi', 'km', 'lbs', 'kg'];
   const spellOut = {
     gal: 'gallons',
     L: 'liters',
@@ -8,6 +8,7 @@ function ConvertHandler() {
     lbs: 'pounds',
     kg: 'kilograms',
   };
+
   const convertMap = {
     gal: { to: 'L', factor: 3.78541 },
     L: { to: 'gal', factor: 1 / 3.78541 },
@@ -17,11 +18,13 @@ function ConvertHandler() {
     kg: { to: 'lbs', factor: 1 / 0.453592 },
   };
 
-  this.getNum = function(input) {
-    let result = input.match(/^[\d.\/]+/);
+  this.getNum = function (input) {
+    const result = input.match(/^[\d.\/]+/);
     if (!result) return 1;
-    let num = result[0];
+
+    const num = result[0];
     if ((num.match(/\//g) || []).length > 1) return 'invalid number';
+
     try {
       return eval(num);
     } catch {
@@ -29,24 +32,28 @@ function ConvertHandler() {
     }
   };
 
-  this.getUnit = function(input) {
-    let result = input.match(/[a-zA-Z]+$/);
+  this.getUnit = function (input) {
+    const result = input.match(/[a-zA-Z]+$/);
     if (!result) return 'invalid unit';
-    let unit = result[0];
-    return units.includes(unit.toLowerCase() === 'l' ? 'L' : unit.toLowerCase()) ? 
-      (unit.toLowerCase() === 'l' ? 'L' : unit.toLowerCase()) : 
-      'invalid unit';
+
+    let unit = result[0].toLowerCase();
+    if (unit === 'l') unit = 'L';
+
+    if (['gal', 'L', 'mi', 'km', 'lbs', 'kg'].includes(unit)) {
+      return unit;
+    }
+    return 'invalid unit';
   };
 
-  this.getReturnUnit = function(initUnit) {
+  this.getReturnUnit = function (initUnit) {
     return convertMap[initUnit]?.to || 'invalid unit';
   };
 
-  this.spellOutUnit = function(unit) {
+  this.spellOutUnit = function (unit) {
     return spellOut[unit] || 'invalid unit';
   };
 
-  this.convert = function(initNum, initUnit) {
+  this.convert = function (initNum, initUnit) {
     const conversion = convertMap[initUnit];
     if (!conversion) return 'invalid unit';
     return parseFloat((initNum * conversion.factor).toFixed(5));
