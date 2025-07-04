@@ -1,9 +1,9 @@
 'use strict';
 
+const expect = require('chai').expect;
 const ConvertHandler = require('../controllers/convertHandler.js');
 
 module.exports = function (app) {
-
   let convertHandler = new ConvertHandler();
 
   app.get('/api/convert', (req, res) => {
@@ -12,6 +12,7 @@ module.exports = function (app) {
     const initNum = convertHandler.getNum(input);
     const initUnit = convertHandler.getUnit(input);
 
+    // Handle errors
     if (initNum === 'invalid number' && initUnit === 'invalid unit') {
       return res.json({ error: 'invalid number and unit' });
     }
@@ -24,17 +25,18 @@ module.exports = function (app) {
 
     const returnNum = convertHandler.convert(initNum, initUnit);
     const returnUnit = convertHandler.getReturnUnit(initUnit);
+
+    // 🟡 HERE’S the fix
     const initUnitString = convertHandler.spellOutUnit(initUnit);
     const returnUnitString = convertHandler.spellOutUnit(returnUnit);
+    const outputString = `${initNum} ${initUnitString} converts to ${returnNum} ${returnUnitString}`;
 
-    const result = {
+    res.json({
       initNum,
       initUnit,
       returnNum,
       returnUnit,
-      string: `${initNum} ${initUnitString} converts to ${returnNum} ${returnUnitString}`
-    };
-
-    res.json(result);
+      string: outputString
+    });
   });
 };
