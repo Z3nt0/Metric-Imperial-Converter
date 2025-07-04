@@ -46,7 +46,9 @@ function ConvertHandler() {
   };
 
   this.getReturnUnit = function (initUnit) {
-    return convertMap[initUnit]?.to || 'invalid unit';
+  const result = convertMap[initUnit]?.to;
+  if (!result) return 'invalid unit';
+  return result === 'L' ? 'L' : result.toLowerCase();
   };
 
   this.spellOutUnit = function (unit) {
@@ -54,6 +56,7 @@ function ConvertHandler() {
   };
 
   this.convert = function (initNum, initUnit) {
+    if (initUnit === 'l') initUnit = 'L';
     const conversion = convertMap[initUnit];
     if (!conversion) return 'invalid unit';
     return parseFloat((initNum * conversion.factor).toFixed(5));
